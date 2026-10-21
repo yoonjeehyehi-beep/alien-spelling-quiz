@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>외계인 침공 맞춤법 퀴즈</title>
+<style>
+/* 글꼴: 인터넷 없이도 되도록 컴퓨터에 있는 글꼴을 씁니다.
+   원하는 글꼴이 있으면 font.ttf 로 이름을 바꿔 이 HTML과 같은 폴더에 두세요. (없으면 자동으로 기본 글꼴 사용) */
+@font-face { font-family: 'GameFont'; src: url('font.ttf'), url('font.otf'), url('font.woff2'); }
+
+:root {
+    --h: min(70vh, 600px);                 /* 책 높이 */
+    --w: min(calc(var(--h) * 0.8), 46vw);  /* 책 반쪽 너비 (펼치면 2배) */
+    --font: 'GameFont', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+* { box-sizing: border-box; }
+
+body {
+    font-family: var(--font); font-weight: 900;
+    background: #f7f4ea; color: #111; margin: 0; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; -webkit-font-smoothing: antialiased;
+}
+
+/* ===== 쏟아지는 별 ===== */
+#stars-container { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.star { position: absolute; top: -40px; color: #ffd84d; -webkit-text-stroke: 2px #111; line-height: 1; animation: fall linear infinite; }
+@keyframes fall { 0% { transform: translateY(-20px) rotate(0); } 100% { transform: translateY(110vh) rotate(360deg); } }
+
+#app { position: relative; z-index: 10; width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+/* ===== 밈 제목 (책이 펼쳐지면 접힘) ===== */
+.head { max-height: 420px; overflow: hidden; text-align: center; padding: 6px 20px 14px;
+        transition: max-height .9s ease, opacity .6s ease, padding .9s ease; }
+.head.hide { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+.main-title-box { display: inline-block; background: #ffe885; padding: 14px 34px; border: 6px solid #111; box-shadow: 8px 8px 0 #111; }
+.main-title-box .sub { font-size: 1.3rem; margin-bottom: 4px; }
+.main-title-box h1 { font-size: 3.4rem; margin: 0; letter-spacing: -2px; line-height: 1.15; }
+.main-title-box h2 { font-size: 2.2rem; color: #d63031; margin: 4px 0 0; }
+.hint { display: inline-block; margin-top: 18px; font-size: 1.6rem; color: #fff; background: #4ecdc4;
+        border: 5px solid #111; box-shadow: 6px 6px 0 #111; padding: 6px 22px; animation: bounce 1.2s ease-in-out infinite; }
+@keyframes bounce { 0%,100% { transform: translateY(0) rotate(1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
+
+/* ===== 책 ===== */
+.scene { perspective: 2400px; padding: 10px 0 20px; }
+.book { position: relative; width: calc(var(--w) * 2); height: var(--h);
+        transform: translateX(calc(var(--w) * -0.5)); transition: transform 1.1s ease; }
+.book.opened { transform: translateX(0); }
+
+/* 표지 밑에 깔린 종이 (닫혀 있을 때 오른쪽 반쪽) */
+.base {
+    position: absolute; left: var(--w); top: 0; width: var(--w); height: var(--h); z-index: 1;
+    background: #fffdf5; border: 6px solid #111; box-shadow: 8px 8px 0 #111;
+}
+
+/* 펼쳐진 한 장의 넓은 종이 (가운데 선 없음) */
+.spread {
+    position: absolute; left: 0; top: 0; width: calc(var(--w) * 2); height: var(--h); z-index: 4;
+    background-color: #fffdf5;
+    background-image: repeating-linear-gradient(transparent 0 44px, #ece7d3 44px 46px);
+    border: 6px solid #111; box-shadow: 8px 8px 0 #111;
+    opacity: 0; pointer-events: none; transition: opacity .4s ease;
+    padding: 26px 36px;
+}
+.book.show .spread { opacity: 1; pointer-events: auto; }
+.inner { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.pop { animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+@keyframes pop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+/* 앞표지 */
+.cover { position: absolute; left: var(--w); top: 0; width: var(--w); height: var(--h);
+         transform-origin: left center; transform-style: preserve-3d;
+         transition: transform 1.1s cubic-bezier(.6,.05,.3,1); z-index: 3; cursor: pointer; }
+.book.opened .cover { transform: rotateY(-180deg); cursor: default; }
+.book:not(.opened) .cover:hover { transform: rotateY(-8deg); }
+.face { position: absolute; inset: 0; backface-visibility: hidden; border: 6px solid #111; }
+.face.front { background: #6c5ce7; box-shadow: 8px 8px 0 #111; display: flex; flex-direction: column;
+              align-items: center; justify-content: space-around; color: #fff; text-align: center; padding: 20px 14px 20px 34px; }
+.face.front::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 24px; background: #4834d4; border-right: 4px solid #111; }
+.face.back { background: #fffdf5; transform: rotateY(180deg); }
+.ctitle { background: #ffe885; color: #111; border: 4px solid #111; padding: 8px 14px; font-size: calc(var(--w) * 0.1); line-height: 1.25; }
+.face.front svg { width: 52%; filter: drop-shadow(4px 4px 0 rgba(0,0,0,.4)); }
+.csub { font-size: calc(var(--w) * 0.055); }
+.alien-eyes { transform-origin: 50px 45px; animation: blink 2s infinite; }
+@keyframes blink { 0%,90%,100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+
+/* ===== 퀴즈: 위에 가로로 긴 문제, 아래에 두 가지 선택 ===== */
+.q-top { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.book-badge { background: #ffe885; border: 5px solid #111; box-shadow: 5px 5px 0 #111; padding: 4px 20px;
+              font-size: calc(var(--w) * 0.07); margin-bottom: 20px; }
+.sentence { font-size: calc(var(--w) * 0.095); line-height: 1.6; word-break: keep-all; text-align: center; }
+.blank { display: inline-block; width: calc(var(--w) * 0.24); border-bottom: 7px solid #e74c3c; margin: 0 6px; }
+.choices { display: flex; gap: 40px; justify-content: center; width: 100%; padding-bottom: 8px; }
+.choice-btn, .action-btn { font-family: inherit; font-weight: 900; color: #111; cursor: pointer; border: 6px solid #111; box-shadow: 8px 8px 0 #111;
+                           transition: transform .1s, box-shadow .1s, background .15s; }
+.choice-btn { background: #5de5a4; flex: 1; max-width: calc(var(--w) * 0.8); padding: 10px 10px; font-size: calc(var(--w) * 0.12); }
+.choice-btn:hover { background: #8ff2c3; }
+.action-btn { background: #fdcb6e; padding: 8px 28px; font-size: calc(var(--w) * 0.075); margin-top: 18px; }
+.choice-btn:active, .action-btn:active { transform: translate(6px, 6px); box-shadow: 2px 2px 0 #111; }
+
+/* ===== 결과: 사진 + 글 ===== */
+.result-row { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 40px; }
+.photo-box { height: 100%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; max-width: 45%; }
+.result-img { max-height: 100%; max-width: 100%; object-fit: contain; display: block; border: 6px solid #111; box-shadow: 6px 6px 0 #111; border-radius: 8px; background: #ddd; }
+.img-missing { display: none; border: 4px dashed #999; color: #777; padding: 20px; font-size: 1.1rem; line-height: 1.5; text-align: center; }
+.result-text { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.result-ok   { color: #0984e3; font-size: calc(var(--w) * 0.068); line-height: 1.4; white-space: nowrap; }
+.result-fail { color: #e74c3c; font-size: calc(var(--w) * 0.068); line-height: 1.4; white-space: nowrap; }
+.answer-note { font-size: calc(var(--w) * 0.065); color: #555; margin-top: 10px; }
+.gift { margin-top: 20px; font-size: calc(var(--w) * 0.08); color: #e17055; background: #ffeaa7; border: 5px solid #111;
+        box-shadow: 6px 6px 0 #111; padding: 8px 18px; transform: rotate(-2deg); }
+</style>
+</head>
+<body>
+<div id="stars-container"></div>
+
+<div id="app">
+    <div class="head" id="head">
+        <div class="main-title-box">
+            <div class="sub">와! 큰일이다! 지구에 남고 싶다!</div>
+            <h1>외계인 침공 시</h1>
+            <h2>맞춤법 모르는 사람이 먼저 잡혀간다</h2>
+        </div>
+        <br>
+        <div class="hint">👇 책 표지를 클릭해봐! 👇</div>
+    </div>
+
+    <div class="scene">
+        <div class="book" id="book">
+            <div class="base"></div>
+            <div class="spread"><div class="inner" id="content"></div></div>
+
+            <div class="cover" onclick="openBook()">
+                <div class="face front">
+                    <div class="ctitle">이 책을<br>펼쳐봐</div>
+                    <svg viewBox="0 0 100 100">
+                        <path d="M50 10 C20 10, 10 40, 20 70 C30 100, 70 100, 80 70 C90 40, 80 10, 50 10 Z" fill="#64dd17" stroke="#111" stroke-width="2"/>
+                        <g class="alien-eyes">
+                            <ellipse cx="30" cy="45" rx="12" ry="20" fill="black" transform="rotate(-25 30 45)"/>
+                            <ellipse cx="70" cy="45" rx="12" ry="20" fill="black" transform="rotate(25 70 45)"/>
+                            <circle cx="28" cy="40" r="4" fill="white"/>
+                            <circle cx="72" cy="40" r="4" fill="white"/>
+                        </g>
+                        <path d="M40 75 Q50 80 60 75" stroke="#111" stroke-width="3" fill="transparent"/>
+                    </svg>
+                    <div class="csub">🛸 BookLog 🛸</div>
+                </div>
+                <div class="face back"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ================================================================
+   ① 사진 설정
+   사진 파일을 이 HTML 파일과 "같은 폴더"에 넣으세요.
+   앞에서부터 차례로 찾아보고, 먼저 발견되는 파일을 씁니다.
+   (파일 이름을 바꾸고 싶으면 따옴표 안의 이름만 고치세요)
+   ================================================================ */
+const SUCCESS_IMGS = ['success.jpg', 'success.jpeg', 'success.png'];   // 성공: 책 읽는 유령
+const FAIL_IMGS    = ['fail.jpg', 'fail.jpeg', 'fail.png'];            // 실패: 사람 잡아가는 외계인
+
+/* ================================================================
+   ② 문제 목록 — 여기만 고치면 문제를 추가/수정/삭제할 수 있어요
+   형식:
+   { title: "📑 책 제목",
+     part1: "빈칸 앞 문장",
+     part2: "빈칸 뒤 문장",
+     choices: ["보기1", "보기2"],
+     answer: 0 },          ← 정답 번호: 보기1이면 0, 보기2이면 1
+   한 문제가 끝나면 맨 뒤에 쉼표(,) 를 꼭 붙이세요.
+   ================================================================ */
+const quizData = [
+    { title: "📑 꽃들에게 희망을", part1: "'배가 고픈걸.' 이런 생각이 들자, 호랑 애벌레는 자기가 태어난 곳인 초록빛 나뭇잎을 ", part2: " 먹기 시작했습니다.", choices: ["갉아", "갈아"], answer: 0 },
+    { title: "📑 어린왕자", part1: "오후 4시에 네가 온다면 나는 3시부터 행복해지기 시작할 ", part2: ".", choices: ["거야", "꺼야"], answer: 0 },
+    { title: "📑 죽이고 싶은 아이", part1: "솔직히 우리 학교 다니는 애들 중에 박서은 모르는 사람 없을걸요. ", part2: "에 대해서 잘은 모르지만, 저도 귀가 있는데 들은 소문은 있죠.", choices: ["걔", "개"], answer: 0 },
+    { title: "📑 아몬드", part1: "내 시선은 미소 ", part2: " 박사의 얼굴 뒤로 떠오른 소년에게 향해 있었다.", choices: ["띈", "띤"], answer: 1 },
+    { title: "📑 소년이 온다", part1: "비가 올 것 같아. 너는 소리 내어 중얼거린다. 정말 비가 쏟아지면 ", part2: ".", choices: ["어떻하지", "어떡하지"], answer: 1 },
+    { title: "📑 세상의 마지막 기차", part1: "사람은 누구나 사랑하는 사람을 잃고 나서야 ", part2: ".", choices: ["깨닫는다", "깨닳는다"], answer: 0 },
+    { title: "📑 스즈메의 문단속", part1: "모르는 장소인데 ", part2: ".", choices: ["낫익다", "낯익다"], answer: 1 },
+    { title: "📑 너의 이름은", part1: "아침, 눈을 뜨면 ", part2: " 인지 울고 있다.", choices: ["웬일", "왠일"], answer: 0 },
+    { title: "📑 페인트", part1: "나는 대꾸 없이 하나와 나란히 보폭을 ", part2: ".", choices: ["맞췄다", "맞혔다"], answer: 0 },
+    { title: "📑 프로젝트 헤일메리", part1: "‘있잖아. 세계가 ", part2: ". 좀 막아 봐.’", choices: ["망해간대", "망해간데"], answer: 0 },
+    { title: "📑 데미안", part1: "알은 세계이다. 태어나려는 자는 하나의 세계를 ", part2: " 한다.", choices: ["깨트려야", "깨뜨려야"], answer: 1 },
+    { title: "📑 코스모스", part1: "인간과 우주는 가장 근본적인 의미에서 ", part2: " 있다.", choices: ["연결돼", "연결되"], answer: 0 },
+    { title: "📑 긴긴밤", part1: "눈이 보이지 않으면 눈이 보이는 코끼리와 살을 ", part2: " 걸으면 되고,", choices: ["맡대며", "맞대며"], answer: 1 },
+    { title: "📑 오만과 편견", part1: "재산", part2: " 있는 독신 남자에게 아내가 꼭 필요하다는 것은 누구나 인정하는 진리다.", choices: ["깨나", "꽤나"], answer: 0 },
+    { title: "📑 1984", part1: "윈스턴 스미스는 차가운 바람을 피해 턱을 가슴에 ", part2: " 승리 맨션의 유리문으로 재빨리 들어갔다.", choices: ["처박고", "쳐박고"], answer: 0 },
+    { title: "📑 아홉살 인생", part1: "어느 정도 생각하는 능력이 생겼을 때, 나는 이 모든 것들이 이미 결정되어 있음을, 그리고 결코 ", part2: " 수 없는 일임을 깨닫게 되었다.", choices: ["되물릴", "대물릴"], answer: 0 },
+    { title: "📑 옥수수 뺑소니", part1: "재준이의 ", part2: "을 강타하자, 녀석의 고함과 쌍시옷 소리가 짜릿하게 귓속으로 파고들었다.", choices: ["뒤통수", "뒷통수"], answer: 0 },
+    { title: "📑 동물농장", part1: "그날 밤, 메이너 농장의 존즈씨는 잠자리에 들기 전 닭장문을 걸어잠그기까진 했으나 술이 너무 취해 닭장의 작은 구멍 닫는 일을 ", part2: ".", choices: ["잊어버렸다", "잃어버렸다"], answer: 0 },
+    { title: "📑 열다섯에 곰이라니", part1: "가족들은 그제야 목에 금메달을 걸치고 발가락 하나에 터지기 일보 직전의 슬리퍼를 끼고 있는 곰의 ", part2: " 모습을 보았다.", choices: ["우스꽝", "우수깡"], answer: 0 },
+    { title: "📑 체리새우 비밀글입니다", part1: "세상 사람 모두가 나를 좋아하는 건 ", part2: ".", choices: ["불가능하대", "불가능하데"], answer: 0 }
+];
+/* ================================================================
+   ③ 여기부터는 동작 코드입니다 (수정하지 않아도 돼요)
+   ================================================================ */
+const starBox = document.getElementById('stars-container');
+for (let i = 0; i < 45; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.textContent = '★';
+    s.style.fontSize = (Math.random() * 18 + 16) + 'px';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDuration = (Math.random() * 4 + 4) + 's';
+    s.style.animationDelay = (-Math.random() * 8) + 's';
+    starBox.appendChild(s);
+}
+
+const book = document.getElementById('book');
+const head = document.getElementById('head');
+const content = document.getElementById('content');
+let currentQuiz = null, lastIndex = -1, busy = false, audioCtx = null;
+
+function initAudio() {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) {}
+}
+function beep(freq, dur) {
+    try {
+        if (!audioCtx) return;
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); setTimeout(() => o.stop(), dur);
+    } catch (e) {}
+}
+
+function animate() { content.classList.remove('pop'); void content.offsetWidth; content.classList.add('pop'); }
+
+function renderQuiz() {
+    let idx;
+    do { idx = Math.floor(Math.random() * quizData.length); }
+    while (quizData.length > 1 && idx === lastIndex);
+    lastIndex = idx;
+    currentQuiz = quizData[idx];
+
+    content.innerHTML =
+        '<div class="q-top">' +
+            '<div class="book-badge">' + currentQuiz.title + '</div>' +
+            '<div class="sentence">' + currentQuiz.part1 + '<span class="blank"></span>' + currentQuiz.part2 + '</div>' +
+        '</div>' +
+        '<div class="choices" id="choices"></div>';
+
+    const box = document.getElementById('choices');
+    const order = currentQuiz.choices.map((_, i) => i).sort(() => Math.random() - 0.5);
+    order.forEach(i => {
+        const b = document.createElement('button');
+        b.className = 'choice-btn';
+        b.textContent = currentQuiz.choices[i];
+        b.onclick = () => checkAnswer(i);
+        box.appendChild(b);
+    });
+    animate();
+}
+
+/* 사진 후보를 차례로 시도 */
+function loadImage(img, missBox, list) {
+    let n = 0;
+    img.onerror = () => {
+        n++;
+        if (n < list.length) { img.src = list[n]; }
+        else { img.style.display = 'none'; missBox.style.display = 'block'; }
+    };
+    img.src = list[0];
+}
+
+function renderResult(ok) {
+    const list = ok ? SUCCESS_IMGS : FAIL_IMGS;
+    const textHtml = ok
+        ? '<div class="result-ok">넌 맞춤법을 아니까<br>살려줄게!</div>' +
+          '<div class="gift">매화뜨락으로 상품받으러 와. 🎁</div>'
+        : '<div class="result-fail">👽 넌 맞춤법을 모르니<br>내가 잡아가야겠다!</div>' +
+          '<div class="answer-note">정답: ' + currentQuiz.choices[currentQuiz.answer] + '</div>';
+
+    content.innerHTML =
+        '<div class="result-row">' +
+            '<div class="photo-box"><img class="result-img" id="rimg" alt="결과 사진">' +
+            '<div class="img-missing" id="rmiss">사진을 찾을 수 없어요 😢<br><b>' + list[0] + '</b> 파일을<br>이 HTML과 같은 폴더에 넣어주세요</div></div>' +
+            '<div class="result-text">' + textHtml +
+            '<button class="action-btn" onclick="resetQuiz()">다시 도전할래?</button></div>' +
+        '</div>';
+    loadImage(document.getElementById('rimg'), document.getElementById('rmiss'), list);
+    animate();
+}
+
+function openBook() {
+    if (busy || book.classList.contains('opened')) return;
+    busy = true;
+    initAudio(); beep(330, 80); setTimeout(() => beep(440, 80), 120);
+    renderQuiz();
+    head.classList.add('hide');
+    book.classList.add('opened');
+    setTimeout(() => { book.classList.add('show'); busy = false; }, 1000);
+}
+
+function checkAnswer(i) {
+    initAudio();
+    const ok = (i === currentQuiz.answer);
+    renderResult(ok);
+    if (ok) { beep(523.25, 150); setTimeout(() => beep(659.25, 150), 150); setTimeout(() => beep(783.99, 300), 300); }
+    else    { beep(300, 300); setTimeout(() => beep(200, 400), 300); }
+}
+
+function resetQuiz() {
+    if (busy) return;
+    busy = true;
+    initAudio(); beep(400, 100);
+    book.classList.remove('show');
+    book.classList.remove('opened');
+    head.classList.remove('hide');
+    setTimeout(() => { content.innerHTML = ''; busy = false; }, 1200);
+}
+</script>
+</body>
+</html>
